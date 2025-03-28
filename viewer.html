@@ -1,3 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>STL Viewer - Final Version</title>
+  <style>
+    body { margin: 0; background: #111; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
 <script type="module">
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
   import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
@@ -12,18 +23,18 @@
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
+  scene.add(new THREE.AmbientLight(0x404040));
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(5, 5, 5);
   scene.add(light);
-  scene.add(new THREE.AmbientLight(0x404040));
 
   const loader = new STLLoader();
-  loader.load('Copo.stl', function (geometry) {
+  loader.load('Copo.stl', geometry => {
     const material = new THREE.MeshStandardMaterial({
       color: 0x888888,
-      flatShading: true,
-      metalness: 0.2,
-      roughness: 0.5
+      metalness: 0.3,
+      roughness: 0.5,
+      flatShading: true
     });
     const mesh = new THREE.Mesh(geometry, material);
     geometry.computeBoundingBox();
@@ -47,4 +58,3 @@
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
-</script>
