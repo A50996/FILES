@@ -1,21 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>STL Viewer - Módulo ES6</title>
-  <style>
-    body { margin: 0; background: #111; }
-    canvas { display: block; }
-  </style>
-</head>
-<body>
 <script type="module">
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js';
-  import {{ OrbitControls }} from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
-  import {{ STLLoader }} from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/STLLoader.js';
+  import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+  import { STLLoader } from 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/STLLoader.js';
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -23,41 +12,39 @@
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
 
-  scene.add(new THREE.AmbientLight(0x404040));
   const light = new THREE.DirectionalLight(0xffffff, 1);
   light.position.set(5, 5, 5);
   scene.add(light);
+  scene.add(new THREE.AmbientLight(0x404040));
 
   const loader = new STLLoader();
-  loader.load('Copo.stl', geometry => {{
-    const material = new THREE.MeshStandardMaterial({{
+  loader.load('Copo.stl', function (geometry) {
+    const material = new THREE.MeshStandardMaterial({
       color: 0x888888,
-      metalness: 0.3,
-      roughness: 0.5,
-      flatShading: true
-    }});
+      flatShading: true,
+      metalness: 0.2,
+      roughness: 0.5
+    });
     const mesh = new THREE.Mesh(geometry, material);
     geometry.computeBoundingBox();
     const center = geometry.boundingBox.getCenter(new THREE.Vector3());
     mesh.position.sub(center);
     scene.add(mesh);
-  }});
+  });
 
   camera.position.set(0, 0, 100);
 
-  function animate() {{
+  function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
-  }}
+  }
 
   animate();
 
-  window.addEventListener('resize', () => {{
+  window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-  }});
+  });
 </script>
-</body>
-</html>
