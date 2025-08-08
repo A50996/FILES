@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Pong 2 Jogadores (Mobile)</title>
+<style>
+  :root{--bg:#000;--fg:#fff}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);-webkit-tap-highlight-color:transparent}
+  #gameWrap{position:relative;height:100vh;width:100vw;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  canvas{background:#050607;display:block;width:100%;height:100%;}
+  /* zonas táteis: divide ecrã em 4 (left/top = P1 up, left/bottom = P1 down, right/top = P2 up, right/bottom = P2 down) */
+  .touchZone{position:absolute;z-index:10;opacity:0.02;background:transparent;display:flex;align-items:center;justify-content:center;user-select:none}
+  /* left half */
+  #p1Up{left:0;top:0;width:50%;height:50%}
+  #p1Down{left:0;bottom:0;width:50%;height:50%}
+  /* right half */
+  #p2Up{right:0;top:0;width:50%;height:50%}
+  #p2Down{right:0;bottom:0;width:50%;height:50%}
+  /* small on-screen HUD */
+  #hud{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:12;font-family:sans-serif;font-weight:700;color:#9fbde8}
+  #msg{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:12;font-family:sans-serif;background:rgba(0,0,0,0.45);padding:8px 12px;border-radius:8px;color:#fff}
+  .btnSmall{position:absolute;top:8px;right:8px;z-index:13;background:#28a0ff;color:#fff;padding:6px 8px;border-radius:6px;font-weight:700;border:0}
+</style>
+</head>
+<body>
+  <div id="gameWrap">
+    <canvas id="game"></canvas>
+
+    <div id="p1Up" class="touchZone" aria-hidden="true"></div>
+    <div id="p1Down" class="touchZone" aria-hidden="true"></div>
+    <div id="p2Up" class="touchZone" aria-hidden="true"></div>
+    <div id="p2Down" class="touchZone" aria-hidden="true"></div>
+
+    <div id="hud">0 — 0</div>
+    <button id="restart" class="btnSmall">Reiniciar</button>
+    <div id="msg">Toca nas metades (cima/baixo) para controlar. Primeiro a 7 vence.</div>
+  </div>
+
+<script>
+/* Pong 2 jogadores — touch split-screen */
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const msg = document.getElementById('msg');
+const restartBtn = document.getElementById('restart');
+
+let DPR = window.devicePixelRatio || 1;
+function fitCanvas(){
+  DPR = window.devicePixelRatio || 1;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = Math.floor(w * DPR);
+  canvas.height = Math.floor(h * DPR);
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(DPR, DPR);
+}
+window.addEventListener('resize', fitCanvas);
+fitCanvas();
+
+/* Game state */
+const settings = {
+  paddleW: 12,
+  paddleH: Math.max(64, Math.round(window.innerHeight * 0.13)),
+  paddleSpeed: Math.max(4, Math.round(window.innerHeight * 0.012)),
+  ballR: Math.max(6, Math.round(window.innerWidth * 0.01)),
+  maxScore: 7
+};
+
+let W = () => canvas.width / DPR;
+let H = () => canvas.height / DPR;
+
+let p1 = { x: 16, y: (H()-settings.paddleH)/2, score: 0 };
+let p2 = { x: W() - 16 - settings.paddleW, y: (H()-settings.paddleH)/2, score: 0 };
+let ball = { x: W()/2, y: H()/2, vx: 5, vy: 3 };
+let controls = { p1Up:false, p1Down:false, p2Up:false, p2Down:false };
+let running = true;
+
+function resetPositions(){
+  settings.paddleH = Math.max(64, Math.round(window.innerHeight * 0.13));
+  settings.paddleSpeed = Math.max(4, Math.round(window.innerHeight * 0.012));
+  settings.ballR = Math.max(6, Math.round(window.innerWidth * 0.01));
+  p1.y = (H()-settings.paddleH)/2;
+  p2.x = W() - 16 - settings.paddleW;
+  p2.y = (H()-settings.paddleH)/2;
+  ball.x = W()/2; ball.y = H()/2;
+  ball.vx = (Math.random()>0.5?1:-1) * 5;
+  ball.vy = (Math.random()>0.5?1:-1) * 3;
+}
+resetPositions();
+
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+function update(){
+  if(!running) return;
+
+  // player movement
+  if(controls.p1Up) p1.y -= settings.paddleSpeed;
+  if(controls.p1Down) p1.y += settings.paddleSpeed;
+  if(controls.p2Up) p2.y -= settings.paddleSpeed;
+  if(controls.p2Down) p2.y += settings.paddleSpeed;
+
+  p1.y = clamp(p1.y, 0, H()-settings.paddleH);
+  p2.y = clamp(p2.y, 0, H()-settings.paddleH);
+
+  // ball
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // top/bottom
+  if(ball.y - settings.ballR < 0 || ball.y + settings.ballR > H()) ball.vy *= -1;
+
+  // paddle collisions (simple)
+  if(ball.x - settings.ballR < p1.x + settings.paddleW) {
+    if(ball.y > p1.y && ball.y < p1.y + settings.paddleH){
+      ball.x = p1.x + settings.paddleW + settings.ballR;
+      ball.vx = Math.abs(ball.vx) + 0.5;
+      // angle
+      const hit = (ball.y - (p1.y + settings.paddleH/2)) / (settings.paddleH/2);
+      ball.vy = hit * 6;
+      if(Math.abs(ball.vx) > 18) ball.vx = Math.sign(ball.vx)*18;
+    }
+  }
+  if(ball.x + settings.ballR > p2.x) {
+    if(ball.y > p2.y && ball.y < p2.y + settings.paddleH){
+      ball.x = p2.x - settings.ballR;
+      ball.vx = -Math.abs(ball.vx) - 0.5;
+      const hit = (ball.y - (p2.y + settings.paddleH/2)) / (settings.paddleH/2);
+      ball.vy = hit * 6;
+      if(Math.abs(ball.vx) > 18) ball.vx = Math.sign(ball.vx)*18;
+    }
+  }
+
+  // score
+  if(ball.x < 0){
+    p2.score++;
+    hud.textContent = `${p1.score} — ${p2.score}`;
+    if(p2.score >= settings.maxScore) endGame('Player 2');
+    else resetBall('p2');
+  }
+  if(ball.x > W()){
+    p1.score++;
+    hud.textContent = `${p1.score} — ${p2.score}`;
+    if(p1.score >= settings.maxScore) endGame('Player 1');
+    else resetBall('p1');
+  }
+}
+
+function resetBall(lastTo){
+  ball.x = W()/2; ball.y = H()/2;
+  // serve towards quem perdeu
+  const dir = lastTo === 'p1' ? -1 : (lastTo === 'p2' ? 1 : (Math.random()>0.5?1:-1));
+  ball.vx = (4 + Math.random()*2) * dir;
+  ball.vy = (Math.random()*6 - 3);
+}
+
+function endGame(winner){
+  running = false;
+  msg.textContent = `${winner} ganha! Toca para reiniciar.`;
+  msg.style.background = 'rgba(10,10,10,0.7)';
+}
+
+function draw(){
+  // clear (work in CSS px)
+  ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
+
+  // scale already handled by ctx.scale; draw in CSS pixels
+  ctx.fillStyle = '#0b0c0f';
+  ctx.fillRect(0,0,W(),H());
+
+  // middle dashed
+  ctx.fillStyle = '#233240';
+  for(let y=12;y<H(); y+=30) ctx.fillRect(W()/2 - 2, y, 4, 18);
+
+  // paddles & ball
+  ctx.fillStyle = '#e6eef8';
+  ctx.fillRect(p1.x, p1.y, settings.paddleW, settings.paddleH);
+  ctx.fillRect(p2.x, p2.y, settings.paddleW, settings.paddleH);
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, settings.ballR, 0, Math.PI*2);
+  ctx.fill();
+
+  // scores
+  ctx.fillStyle = '#9fbde8';
+  ctx.font = '28px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(p1.score, W()*0.25, 44);
+  ctx.fillText(p2.score, W()*0.75, 44);
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* Touch / Mouse handling for the 4 zones */
+function bindZone(el, setKey){
+  // touches
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    controls[setKey] = true;
+  }, {passive:false});
+  el.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    controls[setKey] = false;
+  }, {passive:false});
+  el.addEventListener('touchcancel', (e) => {
+    controls[setKey] = false;
+  });
+
+  // mouse (useful for testing on desktop)
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); controls[setKey] = true; });
+  window.addEventListener('mouseup', (e) => { controls[setKey] = false; });
+}
+bindZone(document.getElementById('p1Up'), 'p1Up');
+bindZone(document.getElementById('p1Down'), 'p1Down');
+bindZone(document.getElementById('p2Up'), 'p2Up');
+bindZone(document.getElementById('p2Down'), 'p2Down');
+
+/* Also support keyboard arrows / W S for desktop */
+window.addEventListener('keydown', (e) => {
+  if(e.key === 'w' || e.key === 'W') controls.p1Up = true;
+  if(e.key === 's' || e.key === 'S') controls.p1Down = true;
+  if(e.key === 'ArrowUp') controls.p2Up = true;
+  if(e.key === 'ArrowDown') controls.p2Down = true;
+  // restart
+  if(e.key === 'Enter') restartGame();
+});
+window.addEventListener('keyup', (e) => {
+  if(e.key === 'w' || e.key === 'W') controls.p1Up = false;
+  if(e.key === 's' || e.key === 'S') controls.p1Down = false;
+  if(e.key === 'ArrowUp') controls.p2Up = false;
+  if(e.key === 'ArrowDown') controls.p2Down = false;
+});
+
+function restartGame(){
+  p1.score = 0; p2.score = 0;
+  hud.textContent = `${p1.score} — ${p2.score}`;
+  running = true;
+  resetPositions();
+  msg.textContent = 'Toca nas metades (cima/baixo) para controlar. Primeiro a 7 vence.';
+}
+
+restartBtn.addEventListener('click', restartGame);
+/* tap to restart when game over */
+document.getElementById('gameWrap').addEventListener('touchstart', (e) => {
+  if(!running) restartGame();
+});
+
+// On orientation / resize, recompute sizes and reposition
+window.addEventListener('orientationchange', () => { setTimeout(()=>{ fitCanvas(); resetPositions(); }, 200); });
+window.addEventListener('resize', () => { setTimeout(()=>{ fitCanvas(); resetPositions(); }, 100); });
+
+</script>
+</body>
+</html>
