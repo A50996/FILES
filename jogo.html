@@ -160,7 +160,7 @@ function update(){
   if(ball.x - settings.ballR < p1.x + settings.paddleW) {
     if(ball.y > p1.y && ball.y < p1.y + settings.paddleH){
       ball.x = p1.x + settings.paddleW + settings.ballR;
-      ball.vx = Math.abs(ball.vx) + 0.5;
+      ball.vx = Math.abs(ball.vx) + 0.25;
       const hit = (ball.y - (p1.y + settings.paddleH/2)) / (settings.paddleH/2);
       ball.vy = hit * 6;
       if(Math.abs(ball.vx) > 18) ball.vx = Math.sign(ball.vx)*18;
@@ -169,7 +169,7 @@ function update(){
   if(ball.x + settings.ballR > p2.x) {
     if(ball.y > p2.y && ball.y < p2.y + settings.paddleH){
       ball.x = p2.x - settings.ballR;
-      ball.vx = -Math.abs(ball.vx) - 0.5;
+      ball.vx = -Math.abs(ball.vx) - 0.25;
       const hit = (ball.y - (p2.y + settings.paddleH/2)) / (settings.paddleH/2);
       ball.vy = hit * 6;
       if(Math.abs(ball.vx) > 18) ball.vx = Math.sign(ball.vx)*18;
