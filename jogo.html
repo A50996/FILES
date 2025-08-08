@@ -11,20 +11,61 @@
   canvas{background:#050607;display:block;width:100%;height:100%;}
   /* zonas táteis: divide ecrã em 4 (left/top = P1 up, left/bottom = P1 down, right/top = P2 up, right/bottom = P2 down) */
   .touchZone{position:absolute;z-index:10;opacity:0.02;background:transparent;display:flex;align-items:center;justify-content:center;user-select:none}
-  /* left half */
   #p1Up{left:0;top:0;width:50%;height:50%}
   #p1Down{left:0;bottom:0;width:50%;height:50%}
-  /* right half */
   #p2Up{right:0;top:0;width:50%;height:50%}
   #p2Down{right:0;bottom:0;width:50%;height:50%}
-  /* small on-screen HUD */
   #hud{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:12;font-family:sans-serif;font-weight:700;color:#9fbde8}
   #msg{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:12;font-family:sans-serif;background:rgba(0,0,0,0.45);padding:8px 12px;border-radius:8px;color:#fff}
   .btnSmall{position:absolute;top:8px;right:8px;z-index:13;background:#28a0ff;color:#fff;padding:6px 8px;border-radius:6px;font-weight:700;border:0}
+
+  /* --- NOVO CSS --- */
+  #startOverlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #0b0c0f;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+  }
+  #startBtn {
+    background: #28a0ff;
+    color: #fff;
+    border: none;
+    padding: 16px 32px;
+    font-size: 24px;
+    font-weight: bold;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  }
+  #startBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(40,160,255,0.5);
+  }
+  #startOverlay p {
+      margin-top: 24px;
+      font-size: 14px;
+      color: #aaa;
+      max-width: 80%;
+      text-align: center;
+  }
 </style>
 </head>
 <body>
   <div id="gameWrap">
+    <div id="startOverlay">
+        <h1>Pong Mobile</h1>
+        <button id="startBtn">Iniciar Jogo</button>
+        <p>O jogo irá pedir para rodar o ecrã e entrar em modo de ecrã inteiro.</p>
+    </div>
+
     <canvas id="game"></canvas>
 
     <div id="p1Up" class="touchZone" aria-hidden="true"></div>
@@ -44,6 +85,9 @@ const ctx = canvas.getContext('2d');
 const hud = document.getElementById('hud');
 const msg = document.getElementById('msg');
 const restartBtn = document.getElementById('restart');
+/* NOVO: Referências para o ecrã de start */
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
 
 let DPR = window.devicePixelRatio || 1;
 function fitCanvas(){
@@ -76,7 +120,8 @@ let p1 = { x: 16, y: (H()-settings.paddleH)/2, score: 0 };
 let p2 = { x: W() - 16 - settings.paddleW, y: (H()-settings.paddleH)/2, score: 0 };
 let ball = { x: W()/2, y: H()/2, vx: 5, vy: 3 };
 let controls = { p1Up:false, p1Down:false, p2Up:false, p2Down:false };
-let running = true;
+/* NOVO: O jogo começa parado */
+let running = false;
 
 function resetPositions(){
   settings.paddleH = Math.max(64, Math.round(window.innerHeight * 0.13));
@@ -94,7 +139,7 @@ resetPositions();
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
 function update(){
-  if(!running) return;
+  if(!running) return; // Se o jogo não estiver a correr, não faz nada
 
   // player movement
   if(controls.p1Up) p1.y -= settings.paddleSpeed;
@@ -112,12 +157,11 @@ function update(){
   // top/bottom
   if(ball.y - settings.ballR < 0 || ball.y + settings.ballR > H()) ball.vy *= -1;
 
-  // paddle collisions (simple)
+  // paddle collisions
   if(ball.x - settings.ballR < p1.x + settings.paddleW) {
     if(ball.y > p1.y && ball.y < p1.y + settings.paddleH){
       ball.x = p1.x + settings.paddleW + settings.ballR;
       ball.vx = Math.abs(ball.vx) + 0.5;
-      // angle
       const hit = (ball.y - (p1.y + settings.paddleH/2)) / (settings.paddleH/2);
       ball.vy = hit * 6;
       if(Math.abs(ball.vx) > 18) ball.vx = Math.sign(ball.vx)*18;
@@ -150,7 +194,6 @@ function update(){
 
 function resetBall(lastTo){
   ball.x = W()/2; ball.y = H()/2;
-  // serve towards quem perdeu
   const dir = lastTo === 'p1' ? -1 : (lastTo === 'p2' ? 1 : (Math.random()>0.5?1:-1));
   ball.vx = (4 + Math.random()*2) * dir;
   ball.vy = (Math.random()*6 - 3);
@@ -163,26 +206,17 @@ function endGame(winner){
 }
 
 function draw(){
-  // clear (work in CSS px)
   ctx.clearRect(0,0,canvas.width/DPR,canvas.height/DPR);
-
-  // scale already handled by ctx.scale; draw in CSS pixels
   ctx.fillStyle = '#0b0c0f';
   ctx.fillRect(0,0,W(),H());
-
-  // middle dashed
   ctx.fillStyle = '#233240';
   for(let y=12;y<H(); y+=30) ctx.fillRect(W()/2 - 2, y, 4, 18);
-
-  // paddles & ball
   ctx.fillStyle = '#e6eef8';
   ctx.fillRect(p1.x, p1.y, settings.paddleW, settings.paddleH);
   ctx.fillRect(p2.x, p2.y, settings.paddleW, settings.paddleH);
   ctx.beginPath();
   ctx.arc(ball.x, ball.y, settings.ballR, 0, Math.PI*2);
   ctx.fill();
-
-  // scores
   ctx.fillStyle = '#9fbde8';
   ctx.font = '28px system-ui, sans-serif';
   ctx.textAlign = 'center';
@@ -195,24 +229,46 @@ function loop(){
   draw();
   requestAnimationFrame(loop);
 }
+// O loop ainda começa imediatamente para desenhar o ecrã preto por baixo do menu
 loop();
+
+/* --- NOVO: Funções para Fullscreen e Landscape --- */
+async function startGameSequence() {
+    // 1. Pedir Ecrã Inteiro
+    try {
+        if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) { /* Safari */
+            await document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) { /* IE11 */
+            await document.documentElement.msRequestFullscreen();
+        }
+    } catch(err) {
+        console.warn(`Erro ao entrar em ecrã inteiro: ${err.message}`);
+    }
+
+    // 2. Tentar rodar para Landscape (pode não funcionar em todos os browsers/dispositivos)
+    try {
+        if (screen.orientation && screen.orientation.lock) {
+            await screen.orientation.lock('landscape');
+        }
+    } catch (err) {
+        console.warn(`Não foi possível bloquear a orientação: ${err.message}`);
+    }
+
+    // 3. Esconder o menu e iniciar o jogo
+    startOverlay.style.display = 'none';
+    restartGame(); // Inicia o jogo
+}
+
+startBtn.addEventListener('click', startGameSequence);
+
 
 /* Touch / Mouse handling for the 4 zones */
 function bindZone(el, setKey){
-  // touches
-  el.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    controls[setKey] = true;
-  }, {passive:false});
-  el.addEventListener('touchend', (e) => {
-    e.preventDefault();
-    controls[setKey] = false;
-  }, {passive:false});
-  el.addEventListener('touchcancel', (e) => {
-    controls[setKey] = false;
-  });
-
-  // mouse (useful for testing on desktop)
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); controls[setKey] = true; }, {passive:false});
+  el.addEventListener('touchend', (e) => { e.preventDefault(); controls[setKey] = false; }, {passive:false});
+  el.addEventListener('touchcancel', (e) => { controls[setKey] = false; });
   el.addEventListener('mousedown', (e) => { e.preventDefault(); controls[setKey] = true; });
   window.addEventListener('mouseup', (e) => { controls[setKey] = false; });
 }
@@ -221,13 +277,12 @@ bindZone(document.getElementById('p1Down'), 'p1Down');
 bindZone(document.getElementById('p2Up'), 'p2Up');
 bindZone(document.getElementById('p2Down'), 'p2Down');
 
-/* Also support keyboard arrows / W S for desktop */
+/* Keyboard support */
 window.addEventListener('keydown', (e) => {
   if(e.key === 'w' || e.key === 'W') controls.p1Up = true;
   if(e.key === 's' || e.key === 'S') controls.p1Down = true;
   if(e.key === 'ArrowUp') controls.p2Up = true;
   if(e.key === 'ArrowDown') controls.p2Down = true;
-  // restart
   if(e.key === 'Enter') restartGame();
 });
 window.addEventListener('keyup', (e) => {
@@ -240,15 +295,16 @@ window.addEventListener('keyup', (e) => {
 function restartGame(){
   p1.score = 0; p2.score = 0;
   hud.textContent = `${p1.score} — ${p2.score}`;
-  running = true;
+  running = true; // Define o jogo como "a correr"
   resetPositions();
   msg.textContent = 'Toca nas metades (cima/baixo) para controlar. Primeiro a 7 vence.';
 }
 
 restartBtn.addEventListener('click', restartGame);
-/* tap to restart when game over */
 document.getElementById('gameWrap').addEventListener('touchstart', (e) => {
-  if(!running) restartGame();
+  if(!running && startOverlay.style.display === 'none') { // Só reinicia se o jogo acabou (e não se está no menu inicial)
+    restartGame();
+  }
 });
 
 // On orientation / resize, recompute sizes and reposition
